@@ -1,6 +1,6 @@
 const TransactionModel = require('../models/transactionModel');
 const SymbolModel = require('../models/symbolModel');
-const HoldingModel = require('../models/holdingModel');
+const { syncHolding } = require('../services/holdingSync');
 
 async function list(req, res, next) {
   try {
@@ -93,20 +93,6 @@ async function remove(req, res, next) {
     res.json({ success: true });
   } catch (err) {
     next(err);
-  }
-}
-
-async function syncHolding(tenantId, symbolId) {
-  const recalc = await TransactionModel.recalculateHoldings(tenantId, symbolId);
-  if (recalc.quantity > 0) {
-    await HoldingModel.upsert(tenantId, symbolId, {
-      quantity: recalc.quantity,
-      avg_cost: recalc.avg_cost,
-      total_cost: recalc.total_cost,
-      first_purchase_date: recalc.first_purchase_date
-    });
-  } else {
-    await HoldingModel.deleteIfZero(tenantId, symbolId);
   }
 }
 

@@ -2,11 +2,15 @@ const db = require('../config/database');
 
 const TABLE = 'revo_equity_transactions';
 
+function runner(conn) {
+  return conn || db;
+}
+
 class TransactionModel {
-  static async create(tenantId, data) {
+  static async create(tenantId, data, conn = null) {
     const { symbol_id, transaction_type, quantity, price_per_share, fees, transaction_date, notes, reference, created_by } = data;
     const total_amount = quantity * price_per_share + (fees || 0);
-    const [result] = await db.query(
+    const [result] = await runner(conn).query(
       `INSERT INTO ${TABLE} (tenant_id, symbol_id, transaction_type, quantity, price_per_share, fees, total_amount, transaction_date, notes, reference, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [tenantId, symbol_id, transaction_type, quantity, price_per_share, fees || 0, total_amount, transaction_date, notes || null, reference || null, created_by || null]
@@ -73,8 +77,12 @@ class TransactionModel {
     return result.affectedRows > 0;
   }
 
-  static async recalculateHoldings(tenantId, symbolId) {
-    const [txns] = await db.query(
+  static async deleteAllForTenant(tenantId, conn = null) {
+    await runner(conn).query(`DELETE FROM ${TABLE} WHERE tenant_id = ?`, [tenantId]);
+  }
+
+  static async recalculateHoldings(tenantId, symbolId, conn = null) {
+    const [txns] = await runner(conn).query(
       `SELECT transaction_type, quantity, price_per_share, total_amount, transaction_date
        FROM ${TABLE} WHERE tenant_id = ? AND symbol_id = ? ORDER BY transaction_date ASC, id ASC`,
       [tenantId, symbolId]

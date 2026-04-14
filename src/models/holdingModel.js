@@ -3,10 +3,14 @@ const db = require('../config/database');
 const HOLDINGS_TABLE = 'revo_equity_holdings';
 const SYMBOLS_TABLE = 'revo_equity_symbols';
 
+function runner(conn) {
+  return conn || db;
+}
+
 class HoldingModel {
-  static async upsert(tenantId, symbolId, data) {
+  static async upsert(tenantId, symbolId, data, conn = null) {
     const { quantity, avg_cost, total_cost, first_purchase_date } = data;
-    await db.query(
+    await runner(conn).query(
       `INSERT INTO ${HOLDINGS_TABLE} (tenant_id, symbol_id, quantity, avg_cost, total_cost, first_purchase_date)
        VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
@@ -18,8 +22,12 @@ class HoldingModel {
     );
   }
 
-  static async deleteIfZero(tenantId, symbolId) {
-    await db.query(`DELETE FROM ${HOLDINGS_TABLE} WHERE tenant_id = ? AND symbol_id = ? AND quantity <= 0`, [tenantId, symbolId]);
+  static async deleteIfZero(tenantId, symbolId, conn = null) {
+    await runner(conn).query(`DELETE FROM ${HOLDINGS_TABLE} WHERE tenant_id = ? AND symbol_id = ? AND quantity <= 0`, [tenantId, symbolId]);
+  }
+
+  static async deleteAllForTenant(tenantId, conn = null) {
+    await runner(conn).query(`DELETE FROM ${HOLDINGS_TABLE} WHERE tenant_id = ?`, [tenantId]);
   }
 
   static async findAll(tenantId) {

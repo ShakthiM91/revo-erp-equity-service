@@ -4,6 +4,7 @@ const routePermissions = {
   'GET /api/equity/symbols': 'equity.symbols.view',
   'POST /api/equity/symbols': 'equity.symbols.manage',
   'GET /api/equity/holdings': 'equity.holdings.view',
+  'POST /api/equity/holdings/import': 'equity.holdings.import',
   'GET /api/equity/holdings/summary': 'equity.dashboard.view',
   'GET /api/equity/holdings/portfolio-history': 'equity.dashboard.view',
   'GET /api/equity/transactions': 'equity.transactions.view',

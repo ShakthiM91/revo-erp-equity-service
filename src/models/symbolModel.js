@@ -2,6 +2,10 @@ const db = require('../config/database');
 
 const TABLE = 'revo_equity_symbols';
 
+function runner(conn) {
+  return conn || db;
+}
+
 class SymbolModel {
   static async findAll(filters = {}) {
     const { search, is_active, limit = 100, offset = 0 } = filters;
@@ -24,24 +28,24 @@ class SymbolModel {
     return rows;
   }
 
-  static async findById(id) {
-    const [rows] = await db.query(`SELECT * FROM ${TABLE} WHERE id = ?`, [id]);
+  static async findById(id, conn = null) {
+    const [rows] = await runner(conn).query(`SELECT * FROM ${TABLE} WHERE id = ?`, [id]);
     return rows[0] || null;
   }
 
-  static async findByTicker(ticker) {
-    const [rows] = await db.query(`SELECT * FROM ${TABLE} WHERE ticker = ?`, [String(ticker).trim().toUpperCase()]);
+  static async findByTicker(ticker, conn = null) {
+    const [rows] = await runner(conn).query(`SELECT * FROM ${TABLE} WHERE ticker = ?`, [String(ticker).trim().toUpperCase()]);
     return rows[0] || null;
   }
 
-  static async create(data) {
+  static async create(data, conn = null) {
     const { ticker, display_name, full_name, isin, sector } = data;
     const normalized = String(ticker).trim().toUpperCase();
-    const [result] = await db.query(
+    const [result] = await runner(conn).query(
       `INSERT INTO ${TABLE} (ticker, display_name, full_name, isin, sector, is_active) VALUES (?, ?, ?, ?, ?, TRUE)`,
       [normalized, display_name || normalized, full_name || null, isin || null, sector || null]
     );
-    return this.findById(result.insertId);
+    return this.findById(result.insertId, conn);
   }
 
   static async update(id, data) {
