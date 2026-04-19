@@ -1,6 +1,7 @@
 const HoldingModel = require('../models/holdingModel');
 const { getPrice, getHistory } = require('../services/marketDataClient');
 const { calcSellFees } = require('../utils/cseFees');
+const { resolveTradePrice } = require('../utils/resolveTradePrice');
 
 async function getHoldings(req, res, next) {
   try {
@@ -8,8 +9,7 @@ async function getHoldings(req, res, next) {
     const withPrices = await Promise.all(
       rows.map(async (h) => {
         const price = await getPrice(h.ticker);
-        const nowprice = price ? parseFloat(price.nowprice) : null;
-        const currentPrice = nowprice > 0 ? nowprice : (price ? parseFloat(price.close) : null);
+        const currentPrice = resolveTradePrice(price);
         const qty = parseFloat(h.quantity);
         const totalCost = parseFloat(h.total_cost) || 0;
         const marketValue = currentPrice != null ? currentPrice * qty : null;
@@ -49,8 +49,7 @@ async function getSummary(req, res, next) {
     let totalSellingFees = 0;
     for (const h of rows) {
       const price = await getPrice(h.ticker);
-      const nowprice = price ? parseFloat(price.nowprice) : null;
-      const currentPrice = nowprice > 0 ? nowprice : (price ? parseFloat(price.close) : null);
+      const currentPrice = resolveTradePrice(price);
       const qty = parseFloat(h.quantity);
       const cost = parseFloat(h.total_cost) || 0;
       totalCost += cost;
