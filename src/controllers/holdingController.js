@@ -1,7 +1,32 @@
 const HoldingModel = require('../models/holdingModel');
+const HoldingSnapshotModel = require('../models/holdingSnapshotModel');
 const { getPrice, getHistory } = require('../services/marketDataClient');
 const { calcSellFees } = require('../utils/cseFees');
 const { resolveTradePrice } = require('../utils/resolveTradePrice');
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_HISTORY_RANGE_DAYS = 730;
+
+function parseYmd(s) {
+  if (!s || typeof s !== 'string' || !YMD_RE.test(s)) return null;
+  return s;
+}
+
+function todayYmd() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function ymdDaysBetween(start, end) {
+  const a = new Date(`${start}T00:00:00Z`).getTime();
+  const b = new Date(`${end}T00:00:00Z`).getTime();
+  return Math.floor((b - a) / (86400 * 1000));
+}
+
+function ymdAddDays(ymd, deltaDays) {
+  const d = new Date(`${ymd}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
+}
 
 async function getHoldings(req, res, next) {
   try {
@@ -121,4 +146,61 @@ async function getPortfolioHistory(req, res, next) {
   }
 }
 
-module.exports = { getHoldings, getSummary, getPortfolioHistory };
+async function getHoldingHistory(req, res, next) {
+  try {
+    const symbolId = parseInt(req.params.symbolId, 10);
+    if (!Number.isFinite(symbolId) || symbolId <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid symbol id' });
+    }
+
+    const holding = await HoldingModel.findByTenantAndSymbolId(req.tenantId, symbolId);
+    if (!holding) {
+      return res.status(404).json({ success: false, error: 'Holding not found' });
+    }
+
+    let end = parseYmd(req.query.end) || todayYmd();
+    let start = parseYmd(req.query.start);
+    if (!start) {
+      start = ymdAddDays(end, -30);
+    }
+    if (start > end) {
+      return res.status(400).json({ success: false, error: 'start must be on or before end' });
+    }
+    if (ymdDaysBetween(start, end) > MAX_HISTORY_RANGE_DAYS) {
+      start = ymdAddDays(end, -MAX_HISTORY_RANGE_DAYS);
+    }
+
+    const rows = await HoldingSnapshotModel.findRange(req.tenantId, symbolId, start, end);
+    const points = rows.map((r) => ({
+      date:
+        r.snapshot_date instanceof Date
+          ? r.snapshot_date.toISOString().slice(0, 10)
+          : String(r.snapshot_date).slice(0, 10),
+      quantity: r.quantity != null ? parseFloat(r.quantity) : null,
+      avg_cost: r.avg_cost != null ? parseFloat(r.avg_cost) : null,
+      total_cost: r.total_cost != null ? parseFloat(r.total_cost) : null,
+      close_price: r.close_price != null ? parseFloat(r.close_price) : null,
+      market_value: r.market_value != null ? parseFloat(r.market_value) : null,
+      gain_loss: r.gain_loss != null ? parseFloat(r.gain_loss) : null,
+      gain_loss_pct: r.gain_loss_pct != null ? parseFloat(r.gain_loss_pct) : null
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        symbol: {
+          symbol_id: holding.symbol_id,
+          ticker: holding.ticker,
+          display_name: holding.display_name,
+          full_name: holding.full_name
+        },
+        range: { start, end },
+        points
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getHoldings, getSummary, getPortfolioHistory, getHoldingHistory };

@@ -41,6 +41,18 @@ class HoldingModel {
     return rows;
   }
 
+  /** Active holding for tenant+symbol (for history / ownership checks). */
+  static async findByTenantAndSymbolId(tenantId, symbolId) {
+    const [rows] = await db.query(
+      `SELECT h.*, s.ticker, s.display_name, s.full_name FROM ${HOLDINGS_TABLE} h
+       JOIN ${SYMBOLS_TABLE} s ON h.symbol_id = s.id
+       WHERE h.tenant_id = ? AND h.symbol_id = ? AND h.quantity > 0
+       LIMIT 1`,
+      [tenantId, symbolId]
+    );
+    return rows[0] || null;
+  }
+
   static async getDistinctTickersWithHoldings() {
     const [rows] = await db.query(
       `SELECT DISTINCT s.ticker FROM ${HOLDINGS_TABLE} h

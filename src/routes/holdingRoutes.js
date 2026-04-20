@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { getHoldings, getSummary, getPortfolioHistory } = require('../controllers/holdingController');
+const { getHoldings, getSummary, getPortfolioHistory, getHoldingHistory } = require('../controllers/holdingController');
 const { importPortfolio } = require('../controllers/holdingImportController');
 
 const router = express.Router();
@@ -25,6 +25,7 @@ function uploadImportFile(req, res, next) {
 router.post('/import', uploadImportFile, importPortfolio);
 router.get('/summary', getSummary);
 router.get('/portfolio-history', getPortfolioHistory);
+router.get('/:symbolId/history', getHoldingHistory);
 router.get('/', getHoldings);
 
 module.exports = router;
