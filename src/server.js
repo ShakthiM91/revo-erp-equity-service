@@ -16,6 +16,11 @@ app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') || '*', credentials: 
 app.use(morgan('dev'));
 app.use(express.json());
 
+// Health check (before tenant middleware — Docker probes have no gateway headers)
+app.get('/health', (req, res) => {
+  res.json({ service: 'equity-service', status: 'healthy', timestamp: new Date().toISOString() });
+});
+
 // Extract tenant context middleware
 app.use((req, res, next) => {
   req.tenantId = parseInt(req.headers['x-tenant-id']) || null;
@@ -30,11 +35,6 @@ app.use((req, res, next) => {
     return res.status(400).json({ error: 'Tenant context required' });
   }
   next();
-});
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ service: 'equity-service', status: 'healthy', timestamp: new Date().toISOString() });
 });
 
 // Permission check for /api/equity
